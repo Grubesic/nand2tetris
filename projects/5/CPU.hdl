@@ -32,5 +32,56 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	//// Replace this comment with your code.
+    // Instruction decoder
+    Not(in=instruction[15], out=instA);
+    Not(in=instA, out=instC);
+    And(a=instC, b=instruction[4], out=loadD);
+
+    And(a=instC, b=instruction[5], out=destA);
+    Or(a=instA, b=destA, out=loadA);
+
+    And(a=instC, b=instruction[12], out=AMtoALU);
+
+    // JGT jump condition greater than
+    Or(a=zr, b=ng, out=jgtCondition);
+    Not(in=jgtCondition, out=positive);
+    And(a=positive, b=instruction[0], out=jgt);
+
+    // JEQ jump condition equal
+    And(a=zr, b=instruction[1], out=jeq);
+
+    // JLT jump condition less than 0
+    And(a=ng, b=instruction[2], out=jlt);
+
+    // JLE
+    Or(a=jlt, b=jeq, out=jle);
+
+    Or(a=jle, b=jgt, out=jumpToA);              // load PC if cond met and jump if cond
+    And(a=instC, b=jumpToA, out=loadPC);
+
+    And(a=instC, b=instruction[3], out=writeM);
+
+    // First mux
+    Mux16(a=outAlu, b=instruction, sel=instA, out=outFirstMux);
+
+    // A-Register
+    ARegister(in=outFirstMux, load=loadA, out=outA, out[0..14]=addressM);
+
+    // D-Register
+    DRegister(in=outAlu, load=loadD, out=outD);
+
+    // Second mux
+    Mux16(a=outA, b=inM, sel=AMtoALU, out=outSecondMux);
+
+	ALU(x=outD,y=outSecondMux,
+	zx=instruction[11],
+	nx=instruction[10],
+	zy=instruction[9],
+	ny=instruction[8],
+	f=instruction[7],
+	no=instruction[6],
+	out=outAlu, out=outM ,zr=zr,ng=ng);
+
+	PC(in=outA,inc=true,load=loadPC,reset=reset,out[0..14]=pc);
+
 }
